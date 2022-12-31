@@ -426,7 +426,7 @@ func hasTobacco(
 	return done, messages
 }
 
-func run(stop <-chan struct{}, delay time.Duration) <-chan struct{} {
+func signaler(stop <-chan struct{}, delay time.Duration) <-chan struct{} {
 	done := make(chan struct{})
 
 	signal := make(chan struct{})
@@ -496,7 +496,7 @@ func main() {
 		stop        = make(chan struct{})
 		timeout     = 3 * time.Second
 		delay       = timeout / 6
-		isSignaling = run(stop, delay)
+		isSignaling = signaler(stop, delay)
 	)
 
 	time.AfterFunc(timeout, func() {

@@ -8,6 +8,8 @@ There is also a non-smoking agent who enables the smokers to make their cigarett
 
 ## Solution
 
+![image](three-smokers.png)
+
 This solution splits the problem into five sub-problems:
 
 - an agent
