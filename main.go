@@ -427,20 +427,29 @@ func hasTobacco(
 }
 
 func signaler(stop <-chan struct{}, delay time.Duration) <-chan struct{} {
-	done := make(chan struct{})
+	var (
+		done   = make(chan struct{})
+		signal = make(chan struct{})
 
-	signal := make(chan struct{})
+		// Start the agent goroutine.
+		agentDone, forTable = agent(stop, signal)
 
-	agentDone, forTable := agent(stop, signal)
+		// Start gathering supplies on the table and passing them to
+		// smokers.
+		tableDone, forSWT, forSWP, forSWL = table(stop, forTable)
 
-	tableDone, forSWT, forSWP, forSWL := table(stop, forTable)
+		// Start each of the smokers.
+		tobaccoDone, tobaccoMsgs = hasTobacco(stop, forSWT.Papers,
+			forSWT.Lighter)
 
-	tobaccoDone, tobaccoMsgs := hasTobacco(stop, forSWT.Papers, forSWT.Lighter)
+		papersDone, papersMsgs = hasPapers(stop, forSWP.Tobacco,
+			forSWP.Lighter)
 
-	papersDone, papersMsgs := hasPapers(stop, forSWP.Tobacco, forSWP.Lighter)
+		lighterDone, lighterMsgs = hasLighter(stop, forSWL.Tobacco,
+			forSWL.Papers)
+	)
 
-	lighterDone, lighterMsgs := hasLighter(stop, forSWL.Tobacco, forSWL.Papers)
-
+	// Wait blocks until all the done channels are closed.
 	wait := func() {
 		<-agentDone
 		<-tableDone
@@ -449,12 +458,15 @@ func signaler(stop <-chan struct{}, delay time.Duration) <-chan struct{} {
 		<-lighterDone
 	}
 
+	// Start signaling to the agent to drop new components after receiving
+	// a message from a smoker.
 	go func() {
 		defer close(done)
 		defer close(signal)
 		defer wait()
 		defer log.Println("run: stopped reading msgs")
 
+		// Initialize the agent by sending a signal.
 		signal <- struct{}{}
 
 		for {
